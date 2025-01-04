@@ -8,6 +8,7 @@ const flash = require("connect-flash");
 const flashmiddleware = require('./config/flash');
 const fs = require('fs');
 const https = require('https');
+const bodyParser = require('body-parser');
 
 
 // load Express
@@ -18,15 +19,19 @@ const options = {
     cert: fs.readFileSync('cert/origin.crt'),    // SSL Certificate
     key: fs.readFileSync('cert/origin.key'),     // Private Key
 };
+
+app.use(bodyParser.json())
 app.use(express.json());
+
+
 // Set Session and Passport
 const session = require('express-session');
 app.use(session({
-    secret:process.env.SESSION_SECREAT,
+    secret: process.env.SESSION_SECREAT,
     resave: false,
     saveUninitialized: true,
-    rolling: true, 
-    cookie: {maxAge: 24 * 60 * 60 * 1000},
+    rolling: true,
+    cookie: { maxAge: 24 * 60 * 60 * 1000 },
     store: MongoStore.create({
         mongoUrl: process.env.DB_CONNECTION,
         ttl: 3600,
@@ -34,7 +39,7 @@ app.use(session({
 }));
 
 // Store User in locals
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
     res.locals.user = req.session.user_id;
     next();
 });
@@ -53,15 +58,15 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Set Admin Routes
 const adminRoute = require("./routes/adminRoutes");
-app.use('/',adminRoute);
+app.use('/', adminRoute);
 
 // Set API Routes
 const apiRoute = require("./routes/apiRoutes");
 app.use('/api', apiRoute);
 
 // Set Port and Start Server
-// app.listen(process.env.PORT,function(){
-//     console.log("Server is Running  on 8400");
+// app.listen(process.env.PORT, function () {
+//     console.log("Server is Running  on port: " + process.env.PORT);
 // });
 
 // HTTPS server ko start karein

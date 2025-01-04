@@ -36,6 +36,7 @@ const Currency = require('../models/CurrencyModel');
 const CancelledOrder = require('../models/CancelledOrderModel');
 const Products = require("../models/ProductModel");
 const ProductModel = require('../models/ProductModel');
+const { sendSMS } = require('../utils/sms');
 
 // Firebase Push Notification
 function sendPushNotification(serverKey, registrationToken, title, body, callback) {
@@ -447,6 +448,52 @@ module.exports.SignIn = async (req, res) => {
         return res.json({ "data": { "success": 0, "message": "Error occurred. Please try again..!!*", "error": 1 } });
     }
 }
+
+// new sign up process using phone number..
+module.exports.NewSignIn = async (req, res) => {
+    try {
+        // hash the password
+        const { countryCode, phoneNumber } = req.body;
+
+        // Find the user by email and password
+        const getUserData = await User.findOne({ country_code: countryCode, phone: phoneNumber });
+        console.log("user data: ", getUserData)
+
+        // Check if the user does not exists then save user credentials..
+        if (getUserData == null) {
+            const newUser = new User({
+                country_code: countryCode,
+                phone: phoneNumber,
+            })
+            await newUser.save();
+        }
+
+        let OTP = otpgenerator.generate(4, { lowerCaseAlphabets: false, upperCaseAlphabets: false, specialChars: false });
+
+        const userOtpData = new UserOTP({
+            country_code: countryCode,
+            phone_number: phoneNumber,
+            OTP
+        })
+        await userOtpData.save();
+
+        await sendSMS(phoneNumber, OTP);
+
+        return res.json({
+            "data": {
+                success: 1,
+                error: 0,
+                message: "OTP has been sent to your phone number.",
+                response: { countryCode, phoneNumber, OTP }
+            }
+        });
+
+    } catch (error) {
+        console.error("Catch error while sign in:", error);
+        return res.json({ "data": { "success": 0, "message": "Error occurred. Please try again..!!*", "error": 1 } });
+    }
+}
+
 
 // Verify User
 module.exports.VerifyUser = async (req, res) => {
@@ -1240,7 +1287,7 @@ module.exports.GetTrendingPackages = async (req, res) => {
             createdAt: -1
         }).limit(8)
         // console.log(packages);
-        
+
         if (packages.length > 0) {
 
             // Shuffle the packages array
@@ -2149,7 +2196,7 @@ module.exports.BookVehicle = async (req, res) => {
 module.exports.GetBookingDetails = async (req, res) => {
     try {
         console.log("ok");
-        
+
         const userId = req.body.userId;
         const showBooking = await VehicleBooking.find({ "user.userId": userId });
 
@@ -2168,7 +2215,7 @@ module.exports.GetBookingDetails = async (req, res) => {
                     vehicle_number: vehicleDetail.vehicle_number,
                     vehicleTypeId: vehicleDetail.vehicleTypeId
                 } : null;
-// console.log(booking.products);
+                // console.log(booking.products);
 
                 return {
                     "id": booking._id,
@@ -2190,8 +2237,8 @@ module.exports.GetBookingDetails = async (req, res) => {
                     "coupon_amount": booking.coupon_amount,
                     "VAT": booking.VAT,
                     "Total": booking.Total,
-                    "products" : booking.products,
-                    'total_product_amount' : booking.total_product_amount
+                    "products": booking.products,
+                    'total_product_amount': booking.total_product_amount
                 };
             });
 

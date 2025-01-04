@@ -29,7 +29,7 @@ api_route.post('/verify_user', apiController.VerifyUser);
 api_route.post('/resend_otp', apiController.ResendOTP);
 
 // User Login API
-api_route.post('/sign_in', apiController.SignIn);
+api_route.post('/sign_in', apiController.NewSignIn);
 api_route.post('/delete_user',passport.authenticate('jwt', { session: false }),apiController.DeleteUser);
 api_route.post('/signout',passport.authenticate('jwt', { session: false }),apiController.signOut);
 
