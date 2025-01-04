@@ -457,7 +457,7 @@ module.exports.NewSignIn = async (req, res) => {
 
         // Find the user by email and password
         const getUserData = await User.findOne({ country_code: countryCode, phone: phoneNumber });
-        console.log("user data: ", getUserData)
+        // console.log("user data: ", getUserData)
 
         // Check if the user does not exists then save user credentials..
         if (getUserData == null) {
