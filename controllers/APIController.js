@@ -217,6 +217,48 @@ module.exports.SignUp = async (req, res) => {
     }
 }
 
+// Sign Up..
+module.exports.NewSignUp = async (req, res) => {
+
+    try {
+        const getUserData = await User.findById({ _id: req.body.id })
+        if (getUserData == null) return res.json({ "data": { "success": 0, "message": "User registration failed. Can't be find your account!!", "error": 1 } });
+
+        const updatedUserData = await User.findByIdAndUpdate({ _id: getUserData._id }, { firstname: req.body.firstname, lastname: req.body.lastname, email: req.body.email, is_verified: 1 }, { new: true, projection: { active: 0, createdAt: 0, updatedAt: 0, password: 0, username: 0 } })
+        // console.log("Updated user:", updatedUserData)
+
+        // Check device ..
+        const getDeviceData = await Notification.findOne({ deviceId: req.body.deviceId })
+
+        if (getDeviceData != null) {
+            await Notification.updateMany({ deviceId: getDeviceData.deviceId }, { userId: updatedUserData._id, registrationToken: req.body.registrationToken })
+        } else {
+            // Save the new device
+            const newDevice = new Notification({
+                userId: updatedUserData._id,
+                deviceId: req.body.deviceId,
+                registrationToken: req.body.registrationToken,
+            });
+
+            await newDevice.save();
+        }
+
+        return res.json({
+            data: {
+                success: 1,
+                error: 0,
+                message: "Signed up successfully.",
+                response: updatedUserData
+            }
+        });
+
+    } catch (error) {
+        console.log("Catch error in Signup API=>", error)
+        return res.json({ "data": { "success": 0, "message": error, "error": 1 } });
+    }
+}
+
+
 // OTP Verification
 module.exports.OTPVerification = async (req, res) => {
     try {
@@ -285,6 +327,40 @@ module.exports.OTPVerification = async (req, res) => {
         });
     }
 }
+
+// Verify OTP...
+module.exports.VerifyOTP = async (req, res) => {
+
+    try {
+        const { userOtpId, otp } = req.body;
+
+        // Check if email exist
+        const getUserOtp = await UserOTP.findById({ _id: userOtpId }, { OTP: 1, country_code: 1, phone_number: 1 });
+        // console.log("Otp Data:", getUserOtp)
+
+        if (getUserOtp == null) return res.json({ data: { success: 0, message: "Invalid OTP. Please check the OTP and try again!!", error: 1 } });
+        if (getUserOtp.OTP != otp) return res.json({ data: { success: 0, message: "Invalid OTP. Please check the OTP and try again!!", error: 1 } });
+
+        const getUserData = await User.findOne({ country_code: getUserOtp.country_code, phone: getUserOtp.phone_number, active: true }, { active: 0, createdAt: 0, updatedAt: 0, password: 0, username: 0 });
+        if (getUserData == null) return res.json({ data: { success: 0, message: "Invalid OTP. Please check the OTP and try again!!", error: 1 } });
+
+        return res.json({
+            data: {
+                success: 1,
+                error: 0,
+                message: "The OTP has been successfully verified.",
+                isRegistered: getUserData.is_verified == 1 ? true : false,
+                response: getUserData
+            }
+        });
+    } catch (error) {
+        console.log("Catch error in verify OTp API..")
+        return res.json({
+            "data": { "success": 0, "message": error, "error": 1 }
+        });
+    }
+}
+
 
 // User SignIn
 // module.exports.SignIn = async (req, res) => {
@@ -456,7 +532,7 @@ module.exports.NewSignIn = async (req, res) => {
         const { countryCode, phoneNumber } = req.body;
 
         // Find the user by email and password
-        const getUserData = await User.findOne({ country_code: countryCode, phone: phoneNumber });
+        const getUserData = await User.findOne({ country_code: countryCode, phone: phoneNumber, active: true });
         // console.log("user data: ", getUserData)
 
         // Check if the user does not exists then save user credentials..
@@ -475,7 +551,7 @@ module.exports.NewSignIn = async (req, res) => {
             phone_number: phoneNumber,
             OTP
         })
-        await userOtpData.save();
+        const otpData = await userOtpData.save();
 
         await sendSMS(phoneNumber, OTP);
 
@@ -484,7 +560,7 @@ module.exports.NewSignIn = async (req, res) => {
                 success: 1,
                 error: 0,
                 message: "OTP has been sent to your phone number.",
-                response: { countryCode, phoneNumber, OTP }
+                response: { countryCode, phoneNumber, userOtpId: otpData._id, OTP }
             }
         });
 
